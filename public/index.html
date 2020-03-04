@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <script src="https://kit.fontawesome.com/c692bbf7f8.js" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+    <title>Sawmill Editor</title>
+
+    <style>
+    body {
+        background-color:#333;
+        font-family: monospace;
+        font-size: 1.2em;
+    }
+    .selected {
+        background-color: rgba(0, 110, 255, 0.295);
+    }
+    .modal-body {
+        max-height: 30em;
+        overflow: scroll;
+    }
+    a {
+        color: #999;
+    }
+    a:hover {
+        color: #fff;
+    }
+
+    textarea {
+        width: 100%;
+        display: block;
+    }
+
+    .boxsizingBorder {
+        -webkit-box-sizing: border-box;
+        -moz-box-sizing: border-box;
+        box-sizing: border-box;
+    }
+
+    pre {outline: 1px solid #ccc; background-color: #333; color: white;height: 300px;width: 100%; font-size: 0.7em; overflow: scroll;}
+    .string { color: lightgreen; }
+    .number { color: cyan; }
+    .boolean { color: violet; }
+    .null { color: magenta; }
+    .key { color: #f2f2f2; }
+
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-dark">
+        <a href="https://www.logz.io"><img src="./logz-icon.png" class="ml-4" style="height: 2.5em" alt=""></a>
+        <h1 class="display-4 ml-1 mr-4 mb-0" style="color:white;font-size: 2.5em;" href="#">
+          Sawmill Editor
+        </h1>
+        <div class="mr-auto form-inline">
+            <button type="button" class="btn btn-sm btn-primary mx-1" id="getSamplesButton"><i class="fas fa-file-download fa-sm mr-1"></i>Get Samples</button>
+            <button type="button" class="btn btn-sm btn-primary mx-1" id="grokModalButton"><span style="margin-right: 2px;">%{}</span>Grok</button>
+            <button type="button" class="btn btn-sm btn-warning mx-1" id="testModalButton"><i class="fas fa-play fa-sm mr-1"></i>Run</button>
+            <button type="button" class="btn btn-sm btn-secondary mx-1" id="pretty"><i class="fas fa-broom fa-sm mr-1"></i>Format</button>
+            <button type="button" class="btn btn-sm btn-secondary mx-1" id="copy"><i class="fas fa-copy fa-sm mr-1"></i>Copy</button>
+        </div>
+        <div class="ml-auto mx-4" style="display: inline-block;">
+            <a class="mx-2" href="https://github.com/elastic/logstash/blob/v1.4.2/patterns/grok-patterns" target="_blank">Grok Patterns</a>
+            <a class="mx-2" href="https://github.com/logzio/sawmill/wiki/Processors" target="_blank">Sawmill Processors</a>
+            <a class="ml-2" href="https://github.com/cjslack/sawmill-editor" target="_blank"><i class="fab fa-github fa-lg"></i></a>
+        </div>
+      </nav>
+    <div id="editor" style="height: calc(100vh - 62px); width: 100%"></div>
+
+    <!-- GROK Modal -->
+    <div class="modal" id="grokModal">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exampleModalLabel">Grok Debugger</h5>
+                <button type="button" class="close" id="grokModalClose">
+                <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form>
+                <div class="modal-body">
+                    <div class="my-2 boxsizingBorder">
+                        <textarea name="text" id="text" rows="4" placeholder="Log message....."></textarea>
+                    </div>
+                    <div class="my-2 boxsizingBorder">
+                        <textarea name="pattern" id="pattern" rows="4" placeholder="Grok pattern...."></textarea>
+                    </div>
+                    <div class="my-2 boxsizingBorder">
+                        <pre class="mb-0" id="result" style="height: 200px"></pre>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-success" id="grokSubmit"><i class="fas fa-play fa-sm mr-1"></i>Run</button>
+                </div>
+            </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Samples Modal -->
+    <div class="modal" id="getSamplesModal">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exampleModalLabel">Get Sample Logs</h5>
+                <button type="button" class="close" id="getSamplesClose">
+                <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form>
+                <div class="modal-body">
+                    <div class="row form-row my-2">
+                        <div class="col">
+                            <label for="type">Log Type</label>
+                            <input class="form-control" type="text" name="type" id="type">
+                        </div>
+                        <div class="col">
+                            <label for="region">Region</label>
+                            <select class="form-control" name="region" id="region">
+                                <option selected value="us">US</option>
+                                <option value="au">AU</option>
+                                <option value="ca">CA</option>
+                                <option value="eu">EU</option>
+                                <option value="nl">NL</option>
+                                <option value="wa">WA</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row form-row my-2">
+                        <div class="col">
+                            <label for="token">API Token</label>
+                            <input class="form-control" type="text" name="token" id="token">
+                        </div>
+                    </div>
+                </div>
+                <div class="col my-2">
+                    <pre id="samplesDisplay"></pre>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-primary" id="getSamples">Get Samples</button>
+                </div>
+            </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Samples Modal -->
+    <div class="modal" id="testModal">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Sawmill Results</h5>
+                <button type="button" class="close" id="testModalClose">
+                <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+                <div class="modal-body">
+                    <span style="font-size: 1.1em" class="my-2"><span style="font-size: 1.2em" class="text-success"><strong>5/5</strong></span> samples passed</span>
+                </div>
+                <div class="col my-2">
+                    <pre id="testDisplay"></pre>
+                </div>
+                <div class="modal-footer">
+                    <div class="input-group">
+                        <input type="email" class="form-control" placeholder="admin email...">
+                        <div class="input-group-append">
+                          <button class="btn btn-success" type="button" name="email" id="sendToSupport"><i class="fas fa-paper-plane fa-sm mr-1"></i>Send to Support</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    
+    <script src="./src-min-noconflict/ace.js" type="text/javascript" charset="utf-8"></script>
+    <script src="./src-min-noconflict/ext-language_tools.js"></script>
+    <script>
+    // trigger extension
+    ace.require("ace/ext/language_tools");
+    let editor = ace.edit("editor");
+    editor.session.setMode("ace/mode/json");
+    editor.setTheme("ace/theme/ambiance");
+    // enable autocompletion and snippets
+    editor.setOptions({
+        enableBasicAutocompletion: false,
+        enableSnippets: true,
+        enableLiveAutocompletion: true
+    });
+
+    // Base url
+    const url = window.location.href; 
+
+    // Run Grok
+    const handleGrokSubmit = (e) => {
+        e.preventDefault();
+        const data = {
+            text: document.querySelector('#text').value,
+            pattern: document.querySelector('#pattern').value
+        };
+        fetch(url + 'grok', {
+                method: 'POST',
+                headers: {
+                    'content-type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            }
+        )
+        .then(res => res.json())
+        .then(json => document.querySelector('#result').innerHTML = syntaxHighlight(json))
+        .catch(err => console.log(err));
+    };
+
+    // Syntax Highlighting
+    function syntaxHighlight(json) {
+        if (typeof json != 'string') {
+            json = JSON.stringify(json, undefined, 4);
+        }
+        json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+            var cls = 'number';
+            if (/^"/.test(match)) {
+                if (/:$/.test(match)) {
+                    cls = 'key';
+                } else {
+                    cls = 'string';
+                }
+            } else if (/true|false/.test(match)) {
+                cls = 'boolean';
+            } else if (/null/.test(match)) {
+                cls = 'null';
+            }
+            return '<span class="' + cls + '">' + match + '</span>';
+        });
+    };
+
+    // Event listeners for Grok
+    document.querySelector('#grokModalButton').addEventListener('click', () => {
+        document.querySelector('#grokModal').style.display = 'block';
+    });
+    document.querySelector('#grokModalClose').addEventListener('click', () => {
+        document.querySelector('#grokModal').style.display = 'none';
+    });
+    document.querySelector('#grokSubmit').addEventListener('click', handleGrokSubmit);
+    document.querySelector('#pattern').addEventListener('keypress', e => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            handleGrokSubmit(e);
+        }
+    });
+
+    // Get sample logs via api
+    // Handle Get Samples
+    const handleGetSamples = async (e) => {
+        e.preventDefault();
+        const data = {
+            type: document.querySelector('#type').value,
+            token: document.querySelector('#token').value,
+            region: document.querySelector('#region').value
+        }
+        try {
+            const samples = await fetch(url + 'samples', {
+                method: 'POST',
+                headers: {
+                    'content-type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(res => res.json())
+            document.querySelector('#samplesDisplay').innerHTML = syntaxHighlight(samples.hits.hits.map(line => line._source));
+            document.querySelector('#testDisplay').innerHTML = syntaxHighlight(samples.hits.hits.map(line => line._source));
+            document.querySelector('#text').value = samples.hits.hits[0]._source.message || '';
+        } catch (err) {
+            console.log(err);
+        }
+    }
+
+    // Event listeners for Get Samples
+    document.querySelector('#getSamplesButton').addEventListener('click', () => {
+    document.querySelector('#getSamplesModal').style.display = 'block';
+    });
+    document.querySelector('#getSamplesClose').addEventListener('click', () => {
+        document.querySelector('#getSamplesModal').style.display = 'none';
+    });
+    document.querySelector('#getSamples').addEventListener('click', handleGetSamples);
+
+    // Run test
+
+    // Event listeners for Test
+    document.querySelector('#testModalButton').addEventListener('click', () => {
+        document.querySelector('#testModal').style.display = 'block';
+    });
+    document.querySelector('#testModalClose').addEventListener('click', () => {
+        document.querySelector('#testModal').style.display = 'none';
+    });
+    //document.querySelector('test').addEventListener('click', handleRunTest);
+
+    // Copy to clipboard
+    document.querySelector('#copy').addEventListener('click', () => {
+        navigator.clipboard.writeText(editor.getValue());
+    })
+
+    // Pretty Print
+    const prettyPrint = () => {
+        const text = editor.getValue();
+        try {
+            const json = JSON.parse(text);
+            const pretty = JSON.stringify(json, null, 4);
+            editor.setValue(pretty);
+        } catch {
+            alert('Not valid JSON')
+        }
+    }
+
+    document.querySelector('#pretty').addEventListener('click', prettyPrint);
+
+    // Save editor state to local storage
+    const saveState = () => {
+        let text = editor.getValue();
+        window.localStorage.setItem('text', text);
+    }
+
+    let text = window.localStorage.getItem('text') || '{\n\t"steps": [\n\t\t{\n\t\t\t\n\t\t}\n\t]\n}';
+    window.onload = editor.setValue(text);
+    window.onbeforeunload = saveState;
+    </script>
+
+</body>
+</html>
