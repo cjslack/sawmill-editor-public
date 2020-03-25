@@ -46,6 +46,14 @@
     .null { color: magenta; }
     .key { color: #f2f2f2; }
 
+    .btn:disabled {
+        cursor: not-allowed;
+    }
+
+    input[type="file"] {
+        display: none;
+    }
+
     </style>
 </head>
 <body>
@@ -55,9 +63,9 @@
           Sawmill Editor
         </h1>
         <div class="mr-auto form-inline">
-            <button type="button" class="btn btn-sm btn-primary mx-1" id="getSamplesButton"><i class="fas fa-file-download fa-sm mr-1"></i>Get Samples</button>
+            <button type="button" class="btn btn-sm btn-primary mx-1" id="getSamplesButton"><i class="fas fa-file-upload fa-sm mr-1"></i>Samples</button>
             <button type="button" class="btn btn-sm btn-primary mx-1" id="grokModalButton"><span style="margin-right: 2px;">%{}</span>Grok</button>
-            <button type="button" class="btn btn-sm btn-warning mx-1" id="testModalButton"><i class="fas fa-play fa-sm mr-1"></i>Run</button>
+            <button disabled type="button" class="btn btn-sm btn-warning mx-1" id="testModalButton"><i class="fas fa-play fa-sm mr-1"></i>Run</button>
             <button type="button" class="btn btn-sm btn-secondary mx-1" id="pretty"><i class="fas fa-broom fa-sm mr-1"></i>Format</button>
             <button type="button" class="btn btn-sm btn-secondary mx-1" id="copy"><i class="fas fa-copy fa-sm mr-1"></i>Copy</button>
         </div>
@@ -92,6 +100,7 @@
                     </div>
                 </div>
                 <div class="modal-footer">
+                    <button class="btn btn-secondary" id="copyEscapedButton"><i class="fas fa-copy fa-sm mr-1"></i>Copy</button>
                     <button class="btn btn-success" id="grokSubmit"><i class="fas fa-play fa-sm mr-1"></i>Run</button>
                 </div>
             </form>
@@ -104,42 +113,28 @@
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="exampleModalLabel">Get Sample Logs</h5>
+                <h5 class="modal-title" id="exampleModalLabel">Sample Logs</h5>
                 <button type="button" class="close" id="getSamplesClose">
                 <span aria-hidden="true">&times;</span>
                 </button>
             </div>
             <form>
                 <div class="modal-body">
-                    <div class="row form-row my-2">
-                        <div class="col">
-                            <label for="type">Log Type</label>
-                            <input class="form-control" type="text" name="type" id="type">
-                        </div>
-                        <div class="col">
-                            <label for="region">Region</label>
-                            <select class="form-control" name="region" id="region">
-                                <option selected value="us">US</option>
-                                <option value="au">AU</option>
-                                <option value="ca">CA</option>
-                                <option value="eu">EU</option>
-                                <option value="nl">NL</option>
-                                <option value="wa">WA</option>
-                            </select>
-                        </div>
+                    <div class="row m-2">
+                        <label for="fileUploadButton" class="btn btn-block btn-primary">
+                            <i class="fa fa-file-upload fa-sm mr-1"></i>Upload Log Samples
+                        </label>
+                        <input id="fileUploadButton" type="file"/>
                     </div>
-                    <div class="row form-row my-2">
-                        <div class="col">
-                            <label for="token">API Token</label>
-                            <input class="form-control" type="text" name="token" id="token">
-                        </div>
+                    <div class="row m-2">
+                        <span style="margin: 0 auto">- OR paste some below -</span>
                     </div>
-                </div>
-                <div class="col my-2">
-                    <pre id="samplesDisplay"></pre>
+                    <div class="row m-2">
+                        <textarea name="samplesBox" id="samplesBox" rows="10"></textarea>
+                    </div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-primary" id="getSamples">Get Samples</button>
+                    <button disabled class="btn btn-success mx-2" id="acceptSamplesButton"><i class="fas fa-check-square fa-sm mr-1"></i>Accept</button>
                 </div>
             </form>
             </div>
@@ -182,7 +177,7 @@
     ace.require("ace/ext/language_tools");
     let editor = ace.edit("editor");
     editor.session.setMode("ace/mode/json");
-    editor.setTheme("ace/theme/ambiance");
+    editor.setTheme("ace/theme/idle_fingers");
     // enable autocompletion and snippets
     editor.setOptions({
         enableBasicAutocompletion: false,
@@ -212,6 +207,26 @@
         .then(json => document.querySelector('#result').innerHTML = syntaxHighlight(json))
         .catch(err => console.log(err));
     };
+
+    // Escape strings
+    const escapeString = (string) => {
+        const escChar = ['\\', '"'];
+        const escArray = [];
+        string.split('').forEach(c => {
+            if (escChar.includes(c)) escArray.push('\\');
+            escArray.push(c);
+        })
+        return escArray.join('');
+    }
+
+    // Escape grok string and copy
+    const handleCopyEscape = (e) => {
+        e.preventDefault();
+        const escapedString = escapeString(document.querySelector('#pattern').value);
+        navigator.clipboard.writeText(escapedString);
+    };
+
+    document.querySelector('#copyEscapedButton').addEventListener('click', handleCopyEscape);
 
     // Syntax Highlighting
     function syntaxHighlight(json) {
@@ -251,29 +266,20 @@
         }
     });
 
-    // Get sample logs via api
-    // Handle Get Samples
-    const handleGetSamples = async (e) => {
-        e.preventDefault();
-        const data = {
-            type: document.querySelector('#type').value,
-            token: document.querySelector('#token').value,
-            region: document.querySelector('#region').value
-        }
-        try {
-            const samples = await fetch(url + 'samples', {
-                method: 'POST',
-                headers: {
-                    'content-type': 'application/json'
-                },
-                body: JSON.stringify(data)
+    // Get sample logs via upload
+    const handleUpload = async (e) => {
+        if (e.target.files[0]) {
+            if (e.target.files[0].size > 5*1000000) {
+                return alert('File too large. Upload must be less than 5mb.')
+            };
+            const reader = new FileReader();
+            const content = await new Promise((resolve, reject) => {
+                reader.onload = event => resolve(event.target.result)
+                reader.onerror = error => reject(error)
+                reader.readAsText(e.target.files[0])
             })
-            .then(res => res.json())
-            document.querySelector('#samplesDisplay').innerHTML = syntaxHighlight(samples.hits.hits.map(line => line._source));
-            document.querySelector('#testDisplay').innerHTML = syntaxHighlight(samples.hits.hits.map(line => line._source));
-            document.querySelector('#text').value = samples.hits.hits[0]._source.message || '';
-        } catch (err) {
-            console.log(err);
+            document.querySelector('#samplesBox').value = content;
+            document.querySelector("#acceptSamplesButton").removeAttribute('disabled');
         }
     }
 
@@ -284,9 +290,19 @@
     document.querySelector('#getSamplesClose').addEventListener('click', () => {
         document.querySelector('#getSamplesModal').style.display = 'none';
     });
-    document.querySelector('#getSamples').addEventListener('click', handleGetSamples);
-
-    // Run test
+    document.querySelector('#fileUploadButton').addEventListener('change', handleUpload);
+    document.querySelector('#acceptSamplesButton').addEventListener('click', (e) => {
+        e.preventDefault();
+        document.querySelector("#testModalButton").removeAttribute('disabled');
+        document.querySelector('#getSamplesModal').style.display = 'none';
+    });
+    document.querySelector('#samplesBox').addEventListener('input', () => {
+        if (document.querySelector('#samplesBox').value !== '') {
+            document.querySelector("#acceptSamplesButton").removeAttribute('disabled');
+        } else {
+            document.querySelector("#acceptSamplesButton").setAttribute('disabled','');
+        }
+    })
 
     // Event listeners for Test
     document.querySelector('#testModalButton').addEventListener('click', () => {

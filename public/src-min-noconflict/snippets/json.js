@@ -24,7 +24,7 @@ snippet grok\n\
 	"grok": {\n\
 		"config": {\n\
 			"field": "${1:message}",\n\
-			"overwrite": ["${2:message}"],\n\
+			${2:"overwrite": ["message"],}\n\
 			"patterns": [\n\
 				"$3"\n\
 			]\n\
@@ -78,7 +78,7 @@ snippet json\n\
 	"json": {\n\
 		"config": {\n\
 			"field": "${1:_json}",\n\
-			"targetField": "${2}"\n\
+			${2:"targetField": ""}\n\
 		}$0\n\
 	}\n\
 # Key Value\n\
