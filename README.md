@@ -1,6 +1,8 @@
 # Sawmill Editor
 Create and debug your [Sawmills](https://github.com/logzio/sawmill). When you're done, send them to Logz.io support to be added to your account.
 
+"Run" feature to come.
+
 Editor functionality was sourced from [ace-builds](https://github.com/ajaxorg/ace-builds) and modified with snippets for writing Sawmills.
 
 ![screenshot](screenshot1.png)
