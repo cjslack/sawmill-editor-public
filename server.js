@@ -1,3 +1,9 @@
+// Set environment variables
+require('dotenv').config();
+PORT = process.env.PORT || 3000;
+ZENDESK_TOKEN = process.env.ZENDESK_TOKEN;
+
+
 const express = require('express');
 const app = express();
 
@@ -7,6 +13,7 @@ const fetch = require('node-fetch');
 app.use(express.static('public'));
 app.use(express.json());
 
+// grok
 app.post('/grok', (req, res) => {
     const {text, pattern} = req.body;
     const grokPattern = grok.createPattern(pattern);
@@ -18,6 +25,36 @@ app.post('/grok', (req, res) => {
     }
 })
 
+// zendesk
+app.post('/support', (req, res) => {
+    const { samples, sawmill, requester } = req.body;
+    const data = {
+        "ticket": {
+            "requester": {
+                "name": "New Sawmill request",
+                "email": requester
+            },
+            "subject": "A user has submitted a sawmill",
+            "tags": ["sawmill-request"],
+            "comment": {
+                "body": `${sawmill} \n ${samples}`
+            }
+        }
+    };
+    fetch(`https://logzio.zendesk.com/api/v2/tickets.json`, {
+        method: 'POST',
+        headers: {
+            'content-type': 'application/json',
+            'authorization': `Basic ${process.env.ZENDESK_TOKEN}`
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(res.status(201).send('Created'))
+    .catch(err => res.status(err.statusCode).send(err.message))
+})
+
+// get samples endpoint (depreciated)
 app.post('/samples', async (req, res) => {
     const {type, token, region} = req.body;
     const query = {"bool": {"must": [{"match_phrase": {"type": {"query": `${type}`}}}]}};
@@ -37,6 +74,6 @@ app.post('/samples', async (req, res) => {
     }
 })
 
-app.listen(3000, () => {
-    console.log('App listening on 3000')
+app.listen(PORT, () => {
+    console.log(`App listening on ${PORT}`)
 });
